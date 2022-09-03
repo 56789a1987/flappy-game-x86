@@ -29,6 +29,7 @@ boot.bin: boot.asm
 
 os-image.img: boot.bin kernel.bin
 	cat $^ > $@
+	truncate --size=12k $@
 
 run: os-image.img
 	$(QEMU) -drive file=$<,format=raw -soundhw pcspk

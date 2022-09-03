@@ -3,7 +3,7 @@ org 0x7c00
 
 %include "bpb.asm"
 
-KERNAL_OFFSET equ 0x1000
+KERNEL_OFFSET equ 0x1000
 
 start:
 	xor ax, ax
@@ -16,13 +16,13 @@ start:
 	mov al, 0x13
 	int 0x10
 
-	; load kernal from disk
+	; load kernel from disk
 	mov ah, 0x02 ; function 02
 	mov al, 24 ; sectors to read
 	mov ch, 0 ; cylinder
 	mov cl, 2 ; from sector
 	mov dh, 0 ; head
-	mov bx, KERNAL_OFFSET
+	mov bx, KERNEL_OFFSET
 	int 0x13
 
 	; switch to protected mode
@@ -46,7 +46,7 @@ init_32bit:
 	mov ss, ax
 	mov esp, 0x90000
 
-	call KERNAL_OFFSET
+	call KERNEL_OFFSET
 
 end_loop:
 	hlt

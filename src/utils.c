@@ -2,26 +2,34 @@
 #include "utils.h"
 
 void outb(unsigned short port, unsigned char value) {
-    asm volatile("outb %1, %0"
-                 :
-                 : "dN"(port), "a"(value));
+    asm volatile("outb %1, %0" : : "dN"(port), "a"(value));
+}
+
+void outw(unsigned short port, unsigned short value) {
+    asm volatile("outw %1, %0" : : "dN"(port), "a"(value));
 }
 
 unsigned char inb(unsigned short port) {
     unsigned char ret;
-    asm volatile("inb %1, %0"
-                 : "=a"(ret)
-                 : "dN"(port));
+    asm volatile ("inb %1, %0" : "=a"(ret) : "dN"(port));
     return ret;
 }
 
 unsigned short inw(unsigned short port) {
     unsigned short ret;
-    asm volatile("inw %1, %0"
-                 : "=a"(ret)
-                 : "dN"(port));
+    asm volatile ("inw %1, %0" : "=a"(ret) : "dN"(port));
     return ret;
 }
+
+void outsw(unsigned short port, unsigned char *data, unsigned long size) {
+	asm volatile ("rep outsw" : "+S" (data), "+c" (size) : "d" (port));
+}
+
+void insw(unsigned short port, unsigned char *data, unsigned long size) {
+	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
+}
+
+unsigned long tick = 0;
 
 void set_timer(unsigned long frequency) {
 	// the divisor must be small enough to fit into 16-bits
@@ -50,6 +58,21 @@ void start_beep(unsigned long frequency) {
 void stop_beep() {
 	// disable PC speaker
 	outb(0x61, inb(0x61) & 0xfc);
+}
+
+void zero_memory(unsigned char* buffer, unsigned size) {
+	while (size--) {
+		*buffer = 0;
+		buffer++;
+	}
+}
+
+unsigned char number_size(unsigned long value) {
+	unsigned char size = 1;
+	while (value /= 10) {
+		size++;
+	}
+	return size;
 }
 
 void clear_rect(short x, short y, short w, short h) {

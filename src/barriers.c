@@ -1,4 +1,5 @@
 #include "common.h"
+#include "utils.h"
 #include "barriers.h"
 
 unsigned char barrier_bitmap[VIDEO_HEIGHT * 2][24];
@@ -35,6 +36,8 @@ void copy_row(unsigned char *source, unsigned char *target) {
 }
 
 void init_barrier_bitmap() {
+	zero_memory((unsigned char*) barrier_bitmap, sizeof(barrier_bitmap));
+
 	for (char x = 0; x < 24; x++) {
 		barrier_bitmap[0][x] = get_barrier_color(x < 12 ? x - 2 : x + 2);
 		barrier_bitmap[VIDEO_HEIGHT - BARRIER_GAP - 9][x] = get_barrier_color(x);

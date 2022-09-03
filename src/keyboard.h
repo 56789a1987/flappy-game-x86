@@ -165,5 +165,3 @@
 #define BREAK_PAGEDOWN 209
 #define BREAK_INSERT 210
 #define BREAK_DELETE 211
-
-extern void press_key();

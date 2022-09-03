@@ -32,8 +32,6 @@ unsigned char mouse_read() {
 void init_mouse() {
 	unsigned char status;
 
-	asm volatile ("cli");
-
 	// enable the auxiliary mouse device
 	ps2_wait_output();
 	outb(0x64, 0xa8);
@@ -55,8 +53,6 @@ void init_mouse() {
 	// enable the mouse
 	mouse_write(0xf4);
 	mouse_read();
-
-	asm volatile ("sti");
 }
 
 void handle_mouse_packet() {

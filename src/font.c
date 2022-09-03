@@ -45,11 +45,27 @@ void draw_char(short x, short y, unsigned char chr, unsigned char color) {
 	}
 }
 
-void draw_chars(short x, short y, unsigned char *chars, unsigned char color) {
+void draw_chars(short x, short y, const unsigned char *chars, unsigned char color) {
 	unsigned char i = 0, chr = chars[0];
 	while (chr) {
 		draw_char(x, y, chr, color);
 		chr = chars[++i];
 		x += CHAR_W;
 	}
+}
+
+short draw_uint32_right(short x, short y, unsigned long value, unsigned char color) {
+	if (value == 0) {
+		x -= CHAR_W;
+		draw_char(x, y, '0', color);
+	} else {
+		while (value) {
+			x -= CHAR_W;
+			unsigned char chr = (value % 10) + '0';
+			draw_char(x, y, chr, color);
+			value /= 10;
+		}
+	}
+
+	return x;
 }

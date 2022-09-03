@@ -34,6 +34,11 @@ out 0xA1, al
 ; enable interrupts
 sti
 
+; enable FPU
+mov eax, cr4
+or eax, 0x200
+mov cr4, eax
+
 call main
 
 end_loop:
@@ -57,6 +62,8 @@ BASE_ADDR equ 0x1000
 extern timer_handler_cb
 extern keyboard_handler_cb
 extern mouse_handler_cb
+extern floppy_handler_cb
+extern ata_handler_cb
 
 hwi_handler:
 	begin_interrupt
@@ -75,6 +82,11 @@ keyboard_handler:
 mouse_handler:
 	begin_interrupt
 	call mouse_handler_cb
+	end_interrupt
+
+ata_handler:
+	begin_interrupt
+	call ata_handler_cb
 	end_interrupt
 
 %macro irq_reg 1
@@ -116,7 +128,7 @@ idt_start:
 	; CPU co-processor / FPU / Inter-processor
 	irq_reg hwi_handler
 	; primary ATA channel
-	irq_reg hwi_handler
+	irq_reg ata_handler
 	; secondary ATA channel
 	irq_reg hwi_handler
 

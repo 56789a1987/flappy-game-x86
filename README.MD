@@ -4,11 +4,15 @@ A simple flappy game running in OS kernel level.
 
 You can run it in a x86 virtual machine, load the disk image into floppy drive and start. (Can run without any existing OS)
 
-Using PC Speaker for sound. Supports PS/2 Keyboard & Mouse.
+Using PC Speaker for sound. Supports PS/2 Keyboard & Mouse. Use IDE hard disk for saving data (this will read/write sector 24).
 
 ![screenshot](screenshot.png)
 
-How to play: Press space key or left click to jump.
+How to play:
+
+- Press <kbd>Space</kbd> or left click to jump.
+- Press <kbd>S</kbd> to change speed.
+- Press <kbd>Esc</kbd> to pause.
 
 ## Dev-requirements
 

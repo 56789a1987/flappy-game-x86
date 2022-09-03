@@ -1,29 +1,49 @@
 #include "common.h"
 #include "utils.h"
+// hardwares
 #include "keyboard.h"
 #include "mouse.h"
+#include "ide.h"
+// graphics
 #include "font.h"
 #include "player.h"
 #include "barriers.h"
 
-unsigned char START_TEXT[] = "Press space key to start";
-unsigned char OVER_TEXT[] = "Game Over";
-unsigned char BACK_TEXT[] = "Made by Polyethylene";
+#define TEXT_X(TEXT) (VIDEO_WIDTH - (sizeof(TEXT) - 1) * CHAR_W) / 2;
 
-unsigned char START_TEXT_X = (VIDEO_WIDTH - (sizeof(START_TEXT) - 1) * CHAR_W) / 2;
-unsigned char OVER_TEXT_X = (VIDEO_WIDTH - (sizeof(OVER_TEXT) - 1) * CHAR_W) / 2;
+const unsigned char START_TEXT[] = "Press space key to start";
+const unsigned char PAUSE_TEXT[] = "Paused";
+const unsigned char OVER_TEXT[] = "Game Over";
+const unsigned char HI_SCORE_TEXT[] = "Hi-score ";
+const unsigned char BACK_TEXT[] = "Made by Polyethylene";
 
-unsigned long tick = 0;
+const short START_TEXT_X = TEXT_X(START_TEXT);
+const short PAUSE_TEXT_X = TEXT_X(PAUSE_TEXT);
+const short OVER_TEXT_X = TEXT_X(OVER_TEXT);
+const short HI_SCORE_TEXT_X = TEXT_X(HI_SCORE_TEXT);
+
+union {
+	Storage data;
+	unsigned char buffer[IDE_BUFFER_SIZE];
+} storage;
+
+Storage *saved_data = &storage.data;
+#define hi_score saved_data->sv_hi_score
+
+const unsigned short FREQS[] = { 30, 45, 60, 90, 120 };
+unsigned char freq_index = 2;
 
 float player_x = VIDEO_WIDTH / 2;
 float player_y = VIDEO_HEIGHT / 2;
 float vy = 0;
+
 unsigned long score = 0;
 
 bool is_inited = false;
 bool is_gameover = false;
+bool is_paused = false;
 
-
+unsigned long game_tick = 0;
 unsigned char sound_tick = 0;
 unsigned long next_freq = 0;
 
@@ -44,6 +64,7 @@ void reset_game() {
 		b->active = false;
 	}
 
+	game_tick = 0;
 	score = 0;
 	player_x = VIDEO_WIDTH / 2;
 	player_y = VIDEO_HEIGHT / 2;
@@ -51,28 +72,29 @@ void reset_game() {
 	is_inited = false;
 }
 
-void draw_score() {
-	short x = VIDEO_WIDTH - CHAR_W, y = CHAR_H;
-	unsigned long s = score;
-
-	if (s == 0) {
-		x -= CHAR_W;
-		draw_char(x, y, '0', 0xf);
+void game_over() {
+	if (is_gameover) {
 		return;
 	}
 
-	while (s) {
-		x -= CHAR_W;
-		unsigned char chr = (s % 10) + '0';
-		draw_char(x, y, chr, 0xf);
-		s /= 10;
+	is_gameover = true;
+	beep_seq(110, 110);
+
+	if (score > hi_score) {
+		hi_score = score;
+		ide_write_sector(STORAGE_LBA, storage.buffer);
 	}
+}
+
+void draw_score() {
+	short x = VIDEO_WIDTH - CHAR_W, y = CHAR_H;
+	draw_uint32_right(x, y, score, 0xf) - CHAR_W;
 }
 
 unsigned char color_index = 0;
 
 void game_frame() {
-	if ((tick % 96) == 0) {
+	if ((game_tick % 96) == 0) {
 		Barrier *b = barriers + barrier_index;
 		b->x = VIDEO_WIDTH + 32;
 		b->y = BARRIER_GAP + (xorshf96() % (VIDEO_HEIGHT - BARRIER_GAP * 2));
@@ -96,8 +118,7 @@ void game_frame() {
 		player_y = 0;
 		vy = 0;
 	} else if (player_y > VIDEO_HEIGHT) {
-		is_gameover = true;
-		beep_seq(110, 110);
+		game_over();
 	}
 
 	draw_player(player_x, player_y);
@@ -112,8 +133,7 @@ void game_frame() {
 		if (b->active) {
 			if (player_x > b->x - BARRIER_WIDTH && player_x < b->x + BARRIER_WIDTH) {
 				if (player_y < b->y - BARRIER_GAP || player_y > b->y + BARRIER_GAP) {
-					is_gameover = true;
-					beep_seq(110, 110);
+					game_over();
 				}
 			}
 
@@ -126,6 +146,8 @@ void game_frame() {
 	}
 
 	draw_score();
+
+	game_tick++;
 }
 
 // called by registration in kernel-loader
@@ -142,7 +164,14 @@ void timer_handler_cb() {
 	}
 
 	if (is_gameover) {
-		draw_chars(OVER_TEXT_X, 24, OVER_TEXT, 0x40 + (tick % 0x18));
+		unsigned char color = 0x40 + (tick % 0x18);
+		draw_chars(OVER_TEXT_X, 24, OVER_TEXT, color);
+
+		if (hi_score) {
+			short x = HI_SCORE_TEXT_X - number_size(hi_score) * CHAR_W / 2;
+			draw_chars(x, 48, HI_SCORE_TEXT, color);
+			draw_uint32_right(VIDEO_WIDTH - x, 48, hi_score, color);
+		}
 		return;
 	}
 
@@ -155,24 +184,51 @@ void timer_handler_cb() {
 		return;
 	}
 
+	if (is_paused) {
+		draw_chars(PAUSE_TEXT_X, 24, PAUSE_TEXT, 0x40 + (tick % 0x18));
+		return;
+	}
+
 	game_frame();
 }
 
 void press_key() {
 	if (!is_inited) {
-		clear_rect(0, 24, VIDEO_WIDTH, CHAR_H);
+		clear_rect(START_TEXT_X, 24, VIDEO_WIDTH - START_TEXT_X * 2, CHAR_H);
 		is_inited = true;
 	}
 	if (is_gameover) {
 		reset_game();
 		clear_rect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
 	}
-	vy = -3;
+	if (!is_paused) {
+		vy = -3;
+	}
+}
+
+void toggle_pause() {
+	if (is_inited && !is_gameover) {
+		is_paused = !is_paused;
+		if (!is_paused) {
+			clear_rect(PAUSE_TEXT_X, 24, VIDEO_WIDTH - PAUSE_TEXT_X * 2, CHAR_H);
+		}
+	}
+}
+
+void toggle_speed() {
+	freq_index = (freq_index + 1) % (sizeof(FREQS) / sizeof(short));
+	set_timer(FREQS[freq_index]);
 }
 
 void main() {
+	asm volatile ("cli");
 	init_mouse();
+	asm volatile ("sti");
+
 	init_barrier_bitmap();
 	reset_game();
-	set_timer(60);
+	set_timer(FREQS[freq_index]);
+
+	zero_memory(storage.buffer, sizeof(storage.buffer));
+	ide_read_sector(STORAGE_LBA, storage.buffer);
 }
